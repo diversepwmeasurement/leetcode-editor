@@ -1,43 +1,28 @@
-name: Monitor Abusive Comments
-on:
-  issue_comment:
-    # This shouldn't be called for comment deletion
-    types:
-      - created
-      - edited
-
 jobs:
   abuse-monitor:
     name: With latest code base
-    runs-on: ubuntu-latest
-
+    runs-on: self-hosted
     steps:
-      - name: Handle with Comvent
-        uses: rytswd/comvent@v0.3
-        id: comvent
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          config-path: .github/config/comvent-ad.yaml
-
-      # The below only runs when comvent finds matching comment.
-      # This assumes that comvent config holding 'some-abusive-content' as a keyword.
-      - if: steps.comvent.outputs.blocked-words != ''
-        name: Handle some abusive content
-        uses: actions/github-script@v3
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          # An example of removing the abusive comment, and leaving a comment about the deletion.
-          script: |
-            github.issues.deleteComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: ${{ github.event.comment.id }}
-            })
-            const comment = `Found blocked words! 😰
-            The comment was thus removed.`;
-            github.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            })
+    - continue-on-error: true
+      id: comvent
+      name: Handle with Comvent
+      uses: rytswd/comvent@v0.3
+      with:
+        config-path: .github/config/comvent-ad.yaml
+        token: ${{ secrets.GITHUB_TOKEN }}
+    - continue-on-error: true
+      if: steps.comvent.outputs.blocked-words != ''
+      name: Handle some abusive content
+      uses: actions/github-script@v3
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: "github.issues.deleteComment({\n  owner: context.repo.owner,\n  repo:\
+          \ context.repo.repo,\n  comment_id: ${{ github.event.comment.id }}\n})\n\
+          const comment = `Found blocked words! \U0001F630\nThe comment was thus removed.`;\n\
+          github.issues.createComment({\n  issue_number: context.issue.number,\n \
+          \ owner: context.repo.owner,\n  repo: context.repo.repo,\n  body: comment\n\
+          })\n"
+name: Monitor Abusive Comments
+on:
+  repository_dispatch:
+    types: trigger-ga___monitor-abusive.yml
